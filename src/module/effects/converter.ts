@@ -511,14 +511,25 @@ export function convertBonus(item: LancerItem, name: string, bonus: BonusData) {
   let priority = bonus.replace || bonus.overwrite ? 50 : BONUS_STAT_PRIORITY;
   // Attempt to replace special keys in bonus values. Supported keys are {ll} and {grit}. These
   // require the item to belong to either a pilot or an active mech.
+  // For mechs, level/grit are read from the linked pilot directly, because mech.system.level/grit
+  // start at 0 and only get set via active effects — which haven't been applied yet at this point
+  // in the data preparation cycle.
   let value = bonus.val;
-  if (value.includes("{ll}")) {
-    const ll = `${owner?.is_pilot() || owner?.is_mech() ? owner.system.level : 0}`;
-    value = value.replace("{ll}", ll);
-  }
-  if (value.includes("{grit}")) {
-    const grit = `${owner?.is_pilot() || owner?.is_mech() ? owner.system.grit : 0}`;
-    value = value.replace("{grit}", grit);
+  if (value.includes("{ll}") || value.includes("{grit}")) {
+    let ll = 0;
+    let grit = 0;
+    if (owner?.is_pilot()) {
+      ll = owner.system.level;
+      grit = owner.system.grit;
+    } else if (owner?.is_mech()) {
+      const pilot = owner.system.pilot?.value;
+      if (pilot?.is_pilot()) {
+        ll = pilot.system.level;
+        grit = pilot.system.grit;
+      }
+    }
+    value = value.replace("{ll}", `${ll}`);
+    value = value.replace("{grit}", `${grit}`);
   }
   // Convert formulas to a single value
   if (value.includes("-") || value.includes("+")) {
